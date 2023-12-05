@@ -21,9 +21,22 @@ public class GraphProcessor {
      */
 
     // include instance variables here
+    // TODO add instance variables
+    private Map<Point, List<Point>> graph;
+    private Map<Point, Double> distances;
+    private Map<Point, Point> previous;
+    private PriorityQueue<Point> pq;
+    private Set<Point> visited;
+
 
     public GraphProcessor(){
-        // TODO initialize instance variables
+        graph = new HashMap<>();
+        distances = new HashMap<>();
+        previous = new HashMap<>();
+        pq = new PriorityQueue<>();
+        visited = new HashSet<>();
+
+
 
     }
 
@@ -36,7 +49,25 @@ public class GraphProcessor {
      */
 
     public void initialize(FileInputStream file) throws IOException {
-        // TODO implement by reading info and creating graph
+        
+        BufferedReader br = new BufferedReader(new InputStreamReader(file));
+        String line = br.readLine();
+        while(line != null){
+            String[] split = line.split(" ");
+            Point p1 = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
+            Point p2 = new Point(Double.parseDouble(split[2]), Double.parseDouble(split[3]));
+            if(!graph.containsKey(p1)){
+                graph.put(p1, new ArrayList<>());
+            }
+            if(!graph.containsKey(p2)){
+                graph.put(p2, new ArrayList<>());
+            }
+            graph.get(p1).add(p2);
+            graph.get(p2).add(p1);
+            line = br.readLine();
+        }
+
+
     }
 
     /**
@@ -64,7 +95,6 @@ public class GraphProcessor {
      */
     public Point nearestPoint(Point p) {
         // TODO implement nearestPoint
-
         return null;
     }
 
@@ -81,6 +111,7 @@ public class GraphProcessor {
     public double routeDistance(List<Point> route) {
         double d = 0.0;
         // TODO implement routeDistance
+
         return d;
     }
     
