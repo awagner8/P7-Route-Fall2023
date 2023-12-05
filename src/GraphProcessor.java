@@ -21,7 +21,6 @@ public class GraphProcessor {
      */
 
     // include instance variables here
-    // TODO add instance variables
     private Map<Point, List<Point>> graph;
     private Map<Point, Double> distances;
     private Map<Point, Point> previous;
@@ -94,8 +93,17 @@ public class GraphProcessor {
      * @return The closest point in the graph to p
      */
     public Point nearestPoint(Point p) {
-        // TODO implement nearestPoint
-        return null;
+        
+        Point closest = null;
+        double min = Double.MAX_VALUE;
+        for(Point point : graph.keySet()){
+            double distance = point.distance(p);
+            if(distance < min){
+                min = distance;
+                closest = point;
+            }
+        }
+        return closest;
     }
 
 
@@ -109,10 +117,11 @@ public class GraphProcessor {
      * @return The distance to get from start to end
      */
     public double routeDistance(List<Point> route) {
-        double d = 0.0;
-        // TODO implement routeDistance
-
-        return d;
+        double distance = 0.0;
+        for(int i = 0; i < route.size() - 1; i++){
+            distance += route.get(i).distance(route.get(i + 1));
+        }
+        return distance;
     }
     
 
@@ -125,7 +134,27 @@ public class GraphProcessor {
      * @return true if and onlyu if p2 is reachable from p1 (and vice versa)
      */
     public boolean connected(Point p1, Point p2) {
-        // TODO implement connected
+        if(p1.equals(p2)){
+            return true;
+        }
+        if(!graph.containsKey(p1) || !graph.containsKey(p2)){
+            return false;
+        }
+        Set<Point> visited = new HashSet<>();
+        Queue<Point> q = new LinkedList<>();
+        q.add(p1);
+        while(!q.isEmpty()){
+            Point current = q.remove();
+            if(current.equals(p2)){
+                return true;
+            }
+            if(!visited.contains(current)){
+                visited.add(current);
+                for(Point point : graph.get(current)){
+                    q.add(point);
+                }
+            }
+        }
         return false;
     }
 
@@ -142,8 +171,38 @@ public class GraphProcessor {
      * either because start is not connected to end or because start equals end.
      */
     public List<Point> route(Point start, Point end) throws IllegalArgumentException {
-        // TODO implement route
-        return null;
+        if(start.equals(end)){
+            throw new IllegalArgumentException();
+        }
+        if(!connected(start, end)){
+            throw new IllegalArgumentException();
+        }
+        pq.add(start);
+        distances.put(start, 0.0);
+        while(!pq.isEmpty()){
+            Point current = pq.remove();
+            if(current.equals(end)){
+                break;
+            }
+            if(!visited.contains(current)){
+                visited.add(current);
+                for(Point point : graph.get(current)){
+                    double distance = distances.get(current) + current.distance(point);
+                    if(!distances.containsKey(point) || distance < distances.get(point)){
+                        distances.put(point, distance);
+                        previous.put(point, current);
+                        pq.add(point);
+                    }
+                }
+            }
+        }
+        List<Point> route = new ArrayList<>();
+        Point current = end;
+        while(current != null){
+            route.add(0, current);
+            current = previous.get(current);
+        }
+        return route;
     }
     public static void main(String[] args) throws FileNotFoundException, IOException {
         String name = "data/usa.graph";
