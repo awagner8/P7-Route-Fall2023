@@ -2,7 +2,6 @@ import java.security.InvalidAlgorithmParameterException;
 import java.io.*;
 import java.util.*;
 
-
 /**
  * Models a weighted graph of latitude-longitude points
  * and supports various distance and routing operations.
@@ -20,23 +19,22 @@ public class GraphProcessor {
      * @throws Exception if file not found or error reading
      */
 
-    // include instance variables here
-    private Map<Point, List<Point>> graph;
-    private Map<Point, Double> distances;
-    private Map<Point, Point> previous;
-    private PriorityQueue<Point> pq;
-    private Set<Point> visited;
+     private Map <Point, Integer> connectedMap;
+    private List<Point> info;
+    private Map <Point, List<Point>> adjacent;
+    private int numVert;
+    private int numEdges;
+
+
+ 
 
 
     public GraphProcessor(){
-        graph = new HashMap<>();
-        distances = new HashMap<>();
-        previous = new HashMap<>();
-        pq = new PriorityQueue<>();
-        visited = new HashSet<>();
-
-
-
+        connectedMap = new HashMap<>();
+        info = new ArrayList<>();
+        adjacent = new HashMap<>();
+        numVert = 0;
+        numEdges = 0;
     }
 
     /**
@@ -46,27 +44,80 @@ public class GraphProcessor {
      * @param file a FileInputStream of the .graph file
      * @throws IOException if file not found or error reading
      */
-
     public void initialize(FileInputStream file) throws IOException {
+        Scanner reader = new Scanner(file);
         
-        BufferedReader br = new BufferedReader(new InputStreamReader(file));
-        String line = br.readLine();
-        while(line != null){
-            String[] split = line.split(" ");
-            Point p1 = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
-            Point p2 = new Point(Double.parseDouble(split[2]), Double.parseDouble(split[3]));
-            if(!graph.containsKey(p1)){
-                graph.put(p1, new ArrayList<>());
-            }
-            if(!graph.containsKey(p2)){
-                graph.put(p2, new ArrayList<>());
-            }
-            graph.get(p1).add(p2);
-            graph.get(p2).add(p1);
-            line = br.readLine();
+        //if the file isn't a .graph file, throw this error
+        if (!reader.hasNextInt()){
+            reader.close();
+            throw new FileNotFoundException("Could not read .graph file");
         }
 
+        String[] vertedge = reader.nextLine().split(" ");
 
+        numVert = Integer.parseInt(vertedge[0]);
+        numEdges = Integer.parseInt(vertedge[1]);
+
+        info = new ArrayList<>();
+
+        for (int i = 0; i < numVert; i++){
+            String[] temp = reader.nextLine().split(" ");
+            info.add(new Point(Double.parseDouble(temp[1]),Double.parseDouble(temp[2])));
+        }
+
+        
+
+        //System.out.println(info.entrySet());
+
+        adjacent = new HashMap<>();
+
+        for (int i = 0; i < numEdges; i++){
+            String[] temp = reader.nextLine().split(" ");
+            Point a = info.get(Integer.parseInt(temp[0]));
+            Point b = info.get(Integer.parseInt(temp[1]));
+            if (!adjacent.containsKey(a)){
+                adjacent.put(a, new ArrayList<>());
+            }
+            if (!adjacent.containsKey(b)){
+                adjacent.put(b, new ArrayList<>());
+            }
+            adjacent.get(a).add(b);
+            adjacent.get(b).add(a);
+        }
+
+        fillConnections();
+
+        //System.out.println(adjacent.entrySet());
+
+        reader.close();
+    }
+
+    private void fillConnections(){
+        connectedMap = new HashMap<>();
+        Set<Point> visited = new HashSet<>();
+        int component = 0;
+        for (Point p1: info){
+            if (visited.contains(p1)){
+                continue;
+            }
+
+            Stack<Point> toExplore = new Stack<>();
+            Point current;
+            toExplore.add(p1);
+            visited.add(p1);
+            connectedMap.put(p1, component);
+            while (!toExplore.isEmpty()){
+                current = toExplore.pop();
+                for (Point neighbor : adjacent.get(current)){
+                    if (!visited.contains(neighbor)){
+                        visited.add(neighbor);
+                        connectedMap.put(neighbor, component);
+                        toExplore.push(neighbor);
+                    }
+                }
+            }
+            component += 1;
+        }
     }
 
     /**
@@ -93,13 +144,9 @@ public class GraphProcessor {
      * @return The closest point in the graph to p
      */
     public Point nearestPoint(Point p) {
-        
-        Point closest = null;
-        double min = Double.MAX_VALUE;
-        for(Point point : graph.keySet()){
-            double distance = point.distance(p);
-            if(distance < min){
-                min = distance;
+        Point closest = info.get(0);
+        for (Point point : info){
+            if (point.distance(p) < closest.distance(p)){
                 closest = point;
             }
         }
@@ -117,8 +164,8 @@ public class GraphProcessor {
      * @return The distance to get from start to end
      */
     public double routeDistance(List<Point> route) {
-        double distance = 0.0;
-        for(int i = 0; i < route.size() - 1; i++){
+        double distance = 0;
+        for (int i = 0; i < route.size() - 1; i++){
             distance += route.get(i).distance(route.get(i + 1));
         }
         return distance;
@@ -137,21 +184,19 @@ public class GraphProcessor {
         if(p1.equals(p2)){
             return true;
         }
-        if(!graph.containsKey(p1) || !graph.containsKey(p2)){
-            return false;
-        }
+        
         Set<Point> visited = new HashSet<>();
-        Queue<Point> q = new LinkedList<>();
-        q.add(p1);
-        while(!q.isEmpty()){
-            Point current = q.remove();
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(p1);
+        while(!queue.isEmpty()){
+            Point current = queue.remove();
             if(current.equals(p2)){
                 return true;
             }
             if(!visited.contains(current)){
                 visited.add(current);
-                for(Point point : graph.get(current)){
-                    q.add(point);
+                for(Point point : adjacent.get(current)){
+                    queue.add(point);
                 }
             }
         }
@@ -171,36 +216,31 @@ public class GraphProcessor {
      * either because start is not connected to end or because start equals end.
      */
     public List<Point> route(Point start, Point end) throws IllegalArgumentException {
-        if(start.equals(end)){
-            throw new IllegalArgumentException();
-        }
         if(!connected(start, end)){
             throw new IllegalArgumentException();
         }
-        pq.add(start);
-        distances.put(start, 0.0);
-        while(!pq.isEmpty()){
-            Point current = pq.remove();
+        List<Point> route = new ArrayList<>();
+        Set<Point> visited = new HashSet<>();
+        Map<Point, Point> prev = new HashMap<>();
+        Queue<Point> queue = new LinkedList<>();
+        queue.add(start);
+        while(!queue.isEmpty()){
+            Point current = queue.remove();
             if(current.equals(end)){
                 break;
             }
             if(!visited.contains(current)){
                 visited.add(current);
-                for(Point point : graph.get(current)){
-                    double distance = distances.get(current) + current.distance(point);
-                    if(!distances.containsKey(point) || distance < distances.get(point)){
-                        distances.put(point, distance);
-                        previous.put(point, current);
-                        pq.add(point);
-                    }
+                for(Point point : adjacent.get(current)){
+                    queue.add(point);
+                    prev.put(point, current);
                 }
             }
         }
-        List<Point> route = new ArrayList<>();
         Point current = end;
         while(current != null){
             route.add(0, current);
-            current = previous.get(current);
+            current = prev.get(current);
         }
         return route;
     }
