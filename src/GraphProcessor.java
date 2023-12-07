@@ -174,33 +174,45 @@ public class GraphProcessor {
      * either because start is not connected to end or because start equals end.
      */
     public List<Point> route(Point start, Point end) throws IllegalArgumentException {
-        if (start.equals(end) || !connected(start, end)){
-            throw new IllegalArgumentException("No path between start and end");
-        }
-        List<Point> path = new ArrayList<>();
+        Map<Point, Double> distanceMap = new HashMap<>();
         Map<Point, Point> prev = new HashMap<>();
-        Queue<Point> queue = new LinkedList<>();
-        queue.add(start);
-        while(!queue.isEmpty()){
-            Point current = queue.remove();
-            if(current.equals(end)){
+        Set<Point> visited = new HashSet<>();
+        prev.put(start, null);
+    
+        PriorityQueue<Point> queue = new PriorityQueue<Point>(Comparator.comparingDouble(distanceMap ::get));
+        Point current = start;
+        distanceMap.put(start, 0.0);
+        queue.add(current);
+        while (queue.size() > 0) {
+            current = queue.remove();
+            if (current.equals(end)){
                 break;
             }
-            for(Point point : myGraph.get(current)){
-                if(!prev.containsKey(point)){
-                    prev.put(point, current);
-                    queue.add(point);
+            visited.add(current);
+            for(Point p : myGraph.get(current)) {
+                if (visited.contains(p)) continue;
+                double weight = current.distance(p);
+                double newDist = distanceMap.get(current) + weight;
+                if (!distanceMap.containsKey(p) || newDist < distanceMap.get(p)) {
+                    distanceMap.put(p, newDist);
+                    prev.put(p, current);
+                    queue.add(p);
                 }
             }
         }
-        Point current = end;
-        while(!current.equals(start)){
-            path.add(0, current);
-            current = prev.get(current);
+        if (!prev.containsKey(end) || prev.get(end) == null) {
+            throw new IllegalArgumentException("No route found");
         }
-        path.add(0, start);
+        List<Point> path = new ArrayList<>();
+        current = end;
+        while (current != null){
+            path.add(current);
+            current = prev.get(current);
+        } 
+        Collections.reverse(path);
         return path;
     }
+    
     public static void main(String[] args) throws FileNotFoundException, IOException {
         String name = "data/usa.graph";
         GraphProcessor gp = new GraphProcessor();
