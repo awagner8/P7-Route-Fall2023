@@ -19,9 +19,8 @@ public class GraphProcessor {
      * @throws Exception if file not found or error reading
      */
 
-     private Map <Point, Integer> connectedMap;
-    private List<Point> info;
-    private Map <Point, List<Point>> adjacent;
+    private Map <Point, Set<Point>> myGraph;
+    private Map<String, Point> pointName;
     private int numVert;
     private int numEdges;
 
@@ -30,9 +29,8 @@ public class GraphProcessor {
 
 
     public GraphProcessor(){
-        connectedMap = new HashMap<>();
-        info = new ArrayList<>();
-        adjacent = new HashMap<>();
+        myGraph = new HashMap<>();
+        pointName = new HashMap<>();
         numVert = 0;
         numEdges = 0;
     }
@@ -45,80 +43,37 @@ public class GraphProcessor {
      * @throws IOException if file not found or error reading
      */
     public void initialize(FileInputStream file) throws IOException {
-        Scanner reader = new Scanner(file);
-        
-        //if the file isn't a .graph file, throw this error
-        if (!reader.hasNextInt()){
-            reader.close();
-            throw new FileNotFoundException("Could not read .graph file");
+        Scanner scan = new Scanner(file);
+        if(!scan.hasNextInt()){
+            scan.close();
+            throw new IOException("Could not read .graph file");
         }
-
-        String[] vertedge = reader.nextLine().split(" ");
-
-        numVert = Integer.parseInt(vertedge[0]);
-        numEdges = Integer.parseInt(vertedge[1]);
-
-        info = new ArrayList<>();
-
-        for (int i = 0; i < numVert; i++){
-            String[] temp = reader.nextLine().split(" ");
-            info.add(new Point(Double.parseDouble(temp[1]),Double.parseDouble(temp[2])));
+        numVert = scan.nextInt();
+        numEdges = scan.nextInt();
+        Point[] points = new Point[numVert];
+        for (int i = 0; i < numVert; i++) {
+            String name = scan.next();
+            double lat = scan.nextDouble();
+            double lon = scan.nextDouble();
+            Point p = new Point(lat, lon);
+            points[i] = p;
+            pointName.put(name, p);
         }
-
-        
-
-        //System.out.println(info.entrySet());
-
-        adjacent = new HashMap<>();
-
-        for (int i = 0; i < numEdges; i++){
-            String[] temp = reader.nextLine().split(" ");
-            Point a = info.get(Integer.parseInt(temp[0]));
-            Point b = info.get(Integer.parseInt(temp[1]));
-            if (!adjacent.containsKey(a)){
-                adjacent.put(a, new ArrayList<>());
+        for (int k = 0; k < numEdges; k++) {
+            Point p1 = points[scan.nextInt()];
+            Point p2 = points[scan.nextInt()];
+            myGraph.putIfAbsent(p1, new HashSet<Point>());
+            myGraph.putIfAbsent(p2, new HashSet<Point>());
+            myGraph.get(p1).add(p2);
+            myGraph.get(p2).add(p1);
+            if (!scan.hasNextInt() && scan.hasNext()) {
+                scan.next();
             }
-            if (!adjacent.containsKey(b)){
-                adjacent.put(b, new ArrayList<>());
-            }
-            adjacent.get(a).add(b);
-            adjacent.get(b).add(a);
         }
-
-        fillConnections();
-
-        //System.out.println(adjacent.entrySet());
-
-        reader.close();
+        scan.close();
     }
 
-    private void fillConnections(){
-        connectedMap = new HashMap<>();
-        Set<Point> visited = new HashSet<>();
-        int component = 0;
-        for (Point p1: info){
-            if (visited.contains(p1)){
-                continue;
-            }
 
-            Stack<Point> toExplore = new Stack<>();
-            Point current;
-            toExplore.add(p1);
-            visited.add(p1);
-            connectedMap.put(p1, component);
-            while (!toExplore.isEmpty()){
-                current = toExplore.pop();
-                for (Point neighbor : adjacent.get(current)){
-                    if (!visited.contains(neighbor)){
-                        visited.add(neighbor);
-                        connectedMap.put(neighbor, component);
-                        toExplore.push(neighbor);
-                    }
-                }
-            }
-            component += 1;
-        }
-    }
 
     /**
      * NOT USED IN FALL 2023, no need to implement
@@ -144,14 +99,17 @@ public class GraphProcessor {
      * @return The closest point in the graph to p
      */
     public Point nearestPoint(Point p) {
-        Point closest = info.get(0);
-        for (Point point : info){
-            if (point.distance(p) < closest.distance(p)){
-                closest = point;
+        Point nearest = null;
+        double min = Double.MAX_VALUE;
+        for (Point v : myGraph.keySet()) {
+            if (p.distance(v) < min){
+                min = p.distance(v);
+                nearest = v;
             }
         }
-        return closest;
+        return nearest;
     }
+
 
 
     /**
@@ -181,10 +139,9 @@ public class GraphProcessor {
      * @return true if and onlyu if p2 is reachable from p1 (and vice versa)
      */
     public boolean connected(Point p1, Point p2) {
-        if(p1.equals(p2)){
+        if (p1.equals(p2)){
             return true;
         }
-        
         Set<Point> visited = new HashSet<>();
         Queue<Point> queue = new LinkedList<>();
         queue.add(p1);
@@ -195,7 +152,7 @@ public class GraphProcessor {
             }
             if(!visited.contains(current)){
                 visited.add(current);
-                for(Point point : adjacent.get(current)){
+                for(Point point : myGraph.get(current)){
                     queue.add(point);
                 }
             }
@@ -216,11 +173,10 @@ public class GraphProcessor {
      * either because start is not connected to end or because start equals end.
      */
     public List<Point> route(Point start, Point end) throws IllegalArgumentException {
-        if(!connected(start, end)){
+        if (start.equals(end) || !connected(start, end)){
             throw new IllegalArgumentException();
         }
-        List<Point> route = new ArrayList<>();
-        Set<Point> visited = new HashSet<>();
+        List<Point> path = new ArrayList<>();
         Map<Point, Point> prev = new HashMap<>();
         Queue<Point> queue = new LinkedList<>();
         queue.add(start);
@@ -229,20 +185,20 @@ public class GraphProcessor {
             if(current.equals(end)){
                 break;
             }
-            if(!visited.contains(current)){
-                visited.add(current);
-                for(Point point : adjacent.get(current)){
-                    queue.add(point);
+            for(Point point : myGraph.get(current)){
+                if(!prev.containsKey(point)){
                     prev.put(point, current);
+                    queue.add(point);
                 }
             }
         }
         Point current = end;
-        while(current != null){
-            route.add(0, current);
+        while(!current.equals(start)){
+            path.add(0, current);
             current = prev.get(current);
         }
-        return route;
+        path.add(0, start);
+        return path;
     }
     public static void main(String[] args) throws FileNotFoundException, IOException {
         String name = "data/usa.graph";
