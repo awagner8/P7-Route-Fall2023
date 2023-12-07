@@ -99,15 +99,16 @@ public class GraphProcessor {
      * @return The closest point in the graph to p
      */
     public Point nearestPoint(Point p) {
-        Point nearest = null;
-        double min = Double.MAX_VALUE;
-        for (Point v : myGraph.keySet()) {
-            if (p.distance(v) < min){
-                min = p.distance(v);
-                nearest = v;
+        Point closest = null;
+        double minDist = Double.MAX_VALUE;
+        for (Point point : myGraph.keySet()){
+            double dist = point.distance(p);
+            if (dist < minDist){
+                minDist = dist;
+                closest = point;
             }
         }
-        return nearest;
+        return closest;
     }
 
 
@@ -122,7 +123,7 @@ public class GraphProcessor {
      * @return The distance to get from start to end
      */
     public double routeDistance(List<Point> route) {
-        double distance = 0;
+        double distance = 0.0;
         for (int i = 0; i < route.size() - 1; i++){
             distance += route.get(i).distance(route.get(i + 1));
         }
@@ -174,7 +175,7 @@ public class GraphProcessor {
      */
     public List<Point> route(Point start, Point end) throws IllegalArgumentException {
         if (start.equals(end) || !connected(start, end)){
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("No path between start and end");
         }
         List<Point> path = new ArrayList<>();
         Map<Point, Point> prev = new HashMap<>();
